@@ -1,9 +1,9 @@
 import React, { useReducer, useState } from "react";
-import logo from "./logo.svg";
 import "./App.css";
+import Player from "./Components/Player";
 import Wave from "./Components/Wave";
 
-const arr = new Array(256);
+const arr = new Array(512);
 arr.fill(0.5);
 
 function App() {
@@ -12,12 +12,9 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>Render: {render}</p>
-        <p>Width: {data.length}</p>
-        <p>Device pixel ratio: {window.devicePixelRatio}</p>
         <Wave height={100} data={data} setData={setData} render={render} />
         <button onClick={increment}>rerender</button>
+        <Player data={data} />
       </header>
     </div>
   );
