@@ -6,6 +6,7 @@ interface IProps {
   render?: number;
   data: number[];
   setData: (data: number[]) => void;
+  addHistory: (data: number[]) => void;
 }
 
 interface IState {
@@ -39,7 +40,7 @@ function draw(
     | React.MouseEvent<HTMLCanvasElement>
     | React.TouchEvent<HTMLCanvasElement>,
   canvas: HTMLCanvasElement | null,
-  { data, setData, height }: IProps,
+  { data, setData, height, addHistory }: IProps,
   state: IState,
   setState: (state: IState) => void
 ) {
@@ -115,6 +116,8 @@ function draw(
         return;
       }
     }
+  } else {
+    addHistory(data);
   }
   setState({ x, y, draw });
 }
