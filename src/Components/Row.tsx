@@ -1,24 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useReducer } from "react";
 import Player from "./Player";
 import Wave from "./Wave";
-import FFT from "fft.js";
 import Slider from "rc-slider";
+import essentia from "../essentia";
 
 interface IProps {
-  initialData: number[];
+  initialData: Float32Array;
 }
 
-const Range = Slider.createSliderWithTooltip(Slider.Range);
+const Range = Slider.createSliderWithTooltip(Slider);
 
 const Row = ({ initialData }: IProps) => {
-  const [data, setData] = useState([] as number[]);
-  const [history, setHistory] = useState([] as number[][]);
+  const [data, setData] = useState(new Float32Array());
+  const [history, setHistory] = useState([] as Float32Array[]);
   const [histIndex, setHistoryIndex] = useState(0);
-  const [fft, setFft] = useState(null as FFT | null);
-  const [render, setRender] = useState(0);
-  const [range, setRange] = useState([0, 8]);
+  const [render, doRender] = useReducer((r: number) => r + 1, 0);
+  const [range, setRange] = useState(11);
 
-  const addHistory = (data: number[]) => {
+  const addHistory = (data: Float32Array) => {
     if (data !== history[histIndex]) {
       setHistoryIndex(histIndex + 1);
       setHistory([...history.slice(0, histIndex + 1), data]);
@@ -29,42 +28,40 @@ const Row = ({ initialData }: IProps) => {
     setHistoryIndex(histIndex - 1);
     const histData = history[histIndex - 1];
     setData(histData);
-    setRender(render + 1);
+    doRender();
   };
 
   const forward = () => {
     setHistoryIndex(histIndex + 1);
     const histData = history[histIndex + 1];
     setData(histData);
-    setRender(render + 1);
+    doRender();
   };
 
   useEffect(() => {
     setData(initialData);
     setHistory([initialData]);
     setHistoryIndex(0);
-    setFft(new FFT(initialData.length));
-    setRender(render + 1);
+    doRender();
   }, [initialData]);
 
-  const filter = () => {
-    const out = fft?.createComplexArray();
-    fft?.realTransform(out, data);
-    out?.fill(0, 0, range[0] * 2);
-    out?.fill(0, range[1] * 2);
-    const inverse = fft?.createComplexArray();
-    fft?.inverseTransform(inverse, out);
-    const result = new Array(initialData.length);
-    fft?.fromComplexArray(inverse, result);
-    let min = result.reduce((l, r) => Math.min(l, r), 1);
-    let max = result.reduce((l, r) => Math.max(l, r), 0);
-    let mul = 1 / (max - min);
-    for (let i = 0; i < result.length; i++) {
-      result[i] = (result[i] - min) * mul;
-    }
+  const filter = async () => {
+    const ess = await essentia;
+    const size = 4;
+    const temp = new Float32Array(data.length + size * 2);
+    temp.set(data.slice(data.length - size));
+    temp.set(data, size);
+    temp.set(data.slice(0, size), size + data.length);
+    const result = ess
+      .vectorToArray(
+        ess.MovingAverage(
+          ess.MovingAverage(ess.arrayToVector(temp), size).signal
+        ).signal
+      )
+      .slice(size * 2);
     setData(result);
     addHistory(result);
-    setRender(render + 1);
+    doRender();
   };
 
   return (
@@ -77,7 +74,6 @@ const Row = ({ initialData }: IProps) => {
           addHistory={addHistory}
           render={render}
         />
-        <Range min={1} max={data.length} value={range} onChange={setRange} />
         <button onClick={filter}>Filter</button>
         <button onClick={back} disabled={histIndex <= 0}>
           Undo {histIndex}

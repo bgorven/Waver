@@ -10,7 +10,7 @@
     "@types/node": "^12.20.13",
     "@types/react": "^17.0.5",
     "@types/react-dom": "^17.0.5",
-    "fft.js": "^4.0.4",
+    "esm": "^3.2.25",
     "rc-slider": "^9.7.2",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",

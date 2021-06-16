@@ -3,8 +3,7 @@ import "./App.css";
 import "rc-slider/assets/index.css";
 import Row from "./Components/Row";
 
-const data = new Array(512);
-data.fill(0.5);
+const data = new Float32Array(512);
 
 function App() {
   return (

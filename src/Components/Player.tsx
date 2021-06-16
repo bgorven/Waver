@@ -4,9 +4,13 @@ import {
   IAudioBufferSourceNode,
   IAudioContext,
 } from "standardized-audio-context";
+import Slider from "rc-slider";
+import essentia from "../essentia";
+
+const Scale = Slider.createSliderWithTooltip(Slider);
 
 interface IProps {
-  data: number[];
+  data: Float32Array;
 }
 
 const audioCtx = new AudioContext();
@@ -16,42 +20,63 @@ const Player = ({ data }: IProps) => {
   const [source, setSource] = useState(
     null as IAudioBufferSourceNode<IAudioContext> | null
   );
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
-    var buf = audioCtx.createBuffer(1, data.length, audioCtx.sampleRate);
+    const promise = (async () => {
+      let resampled;
+      if (scale === 1) {
+        resampled = data;
+      } else {
+        const ess = await essentia;
+        resampled = ess.vectorToArray(
+          ess.Resample(
+            ess.arrayToVector(data),
+            data.length,
+            data.length * scale
+          ).signal
+        );
+      }
+      const buf = audioCtx.createBuffer(
+        1,
+        resampled.length,
+        audioCtx.sampleRate
+      );
 
-    const source = audioCtx.createBufferSource();
-    setSource(source);
+      const source = audioCtx.createBufferSource();
+      setSource(source);
 
-    const channel = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) {
-      channel[i] = data[i] * 2 - 1;
-    }
+      buf.copyToChannel(resampled, 0);
 
-    source.buffer = buf;
-    source.loop = true;
-    source.connect(audioCtx.destination);
-    if (started) {
-      source.start();
-    }
+      source.buffer = buf;
+      source.loop = true;
+      source.connect(audioCtx.destination);
+      if (started) {
+        source.start();
+      }
+      return source;
+    })();
     return () => {
-      source.disconnect();
+      promise.then((source) => source.disconnect());
     };
-  }, [data, started]);
+  }, [data, started, scale]);
   return (
-    <button
-      onClick={() => {
-        if (started) {
-          start(false);
-          source?.stop();
-        } else {
-          start(true);
-          source?.start();
-        }
-      }}
-    >
-      {started ? "Stop" : "Play"}
-    </button>
+    <>
+      <button
+        onClick={() => {
+          if (started) {
+            start(false);
+            source?.stop();
+          } else {
+            start(true);
+            source?.start();
+          }
+        }}
+      >
+        {started ? "Stop" : "Play"}
+      </button>
+      <Scale min={1} max={100} value={scale} onChange={setScale} />
+    </>
   );
 };
 

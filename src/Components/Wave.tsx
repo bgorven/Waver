@@ -4,9 +4,9 @@ import React, { useEffect, useRef, useState } from "react";
 interface IProps {
   height: number;
   render?: number;
-  data: number[];
-  setData: (data: number[]) => void;
-  addHistory: (data: number[]) => void;
+  data: Float32Array;
+  setData: (data: Float32Array) => void;
+  addHistory: (data: Float32Array) => void;
 }
 
 interface IState {
@@ -23,12 +23,13 @@ function initialRender(
   if (canvas && ctx && data) {
     canvas.height = height;
     canvas.width = data.length;
+    const h = height / 2;
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = "black";
-    ctx.moveTo(0, height * data[0]);
+    ctx.moveTo(0, h + h * data[0]);
     for (let i = 1; i < data.length; i++) {
-      ctx.lineTo(i, height * data[i]);
+      ctx.lineTo(i, h + h * data[i]);
     }
     ctx.stroke();
   }
@@ -72,8 +73,8 @@ function draw(
           (event as React.MouseEvent<HTMLCanvasElement>).button === 1
         )))
   ) {
-    const updated = [...data];
-    const slope = (y - state.y) / (x - state.x);
+    const updated = new Float32Array(data);
+    const slope = x === state.x ? 0 : (y - state.y) / (x - state.x);
     const left = Math.min(x, state.x);
     const start = Math.floor(left);
     const length = Math.min(
@@ -83,7 +84,8 @@ function draw(
     const frac = left - start;
     const startHeight = x < state.x ? y : state.y;
     for (let i = 0; i < length; i++) {
-      updated[start + i] = (startHeight + (i - frac) * slope) / height;
+      updated[start + i] =
+        ((startHeight + (i - frac) * slope) * 2) / height - 1;
     }
     setData(updated);
 
@@ -91,15 +93,16 @@ function draw(
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = "black";
-    ctx.moveTo(start - 2, data[start - 2] * height);
-    ctx.lineTo(start - 1, data[start - 1] * height);
+    const h = height / 2;
+    ctx.moveTo(start - 2, h + h * data[start - 2]);
+    ctx.lineTo(start - 1, h + h * data[start - 1]);
     ctx.lineTo(start, startHeight + -frac * slope);
     ctx.lineTo(start + length - 1, startHeight + (length - 1 - frac) * slope);
     if (start + length < data.length) {
-      ctx.lineTo(start + length, data[start + length] * height);
+      ctx.lineTo(start + length, h + h * data[start + length]);
     }
     if (start + length + 1 < data.length) {
-      ctx.lineTo(start + length + 1, data[start + length + 1] * height);
+      ctx.lineTo(start + length + 1, h + h * data[start + length + 1]);
     }
     ctx.stroke();
   } else if (event.type === "mouseenter") {
