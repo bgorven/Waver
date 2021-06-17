@@ -1,21 +1,17 @@
-import React, { useEffect, useState, useReducer } from "react";
+import { useEffect, useState, useReducer } from "react";
 import Player from "./Player";
-import Wave from "./Wave";
-import Slider from "rc-slider";
+import Waver from "./Waver";
 import essentia from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
 }
 
-const Range = Slider.createSliderWithTooltip(Slider);
-
 const Row = ({ initialData }: IProps) => {
   const [data, setData] = useState(new Float32Array());
   const [history, setHistory] = useState([] as Float32Array[]);
   const [histIndex, setHistoryIndex] = useState(0);
   const [render, doRender] = useReducer((r: number) => r + 1, 0);
-  const [range, setRange] = useState(11);
 
   const addHistory = (data: Float32Array) => {
     if (data !== history[histIndex]) {
@@ -67,9 +63,11 @@ const Row = ({ initialData }: IProps) => {
   return (
     (data.length && (
       <div>
-        <Wave
+        <Waver
+          mode="draw"
           height={100}
           data={data}
+          range={[-1, 1]}
           setData={setData}
           addHistory={addHistory}
           render={render}

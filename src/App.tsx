@@ -1,7 +1,7 @@
-import React from "react";
 import "./App.css";
 import "rc-slider/assets/index.css";
-import Row from "./Components/Row";
+import Loader from "./Components/Loader";
+import Painter from "./Components/Painter";
 
 const data = new Float32Array(512);
 
@@ -9,10 +9,8 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <Row initialData={data} />
-        <Row initialData={data} />
-        <Row initialData={data} />
-        <Row initialData={data} />
+        <Loader initialData={data} />
+        <Painter initialData={data} />
       </header>
     </div>
   );

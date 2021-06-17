@@ -1,4 +1,7 @@
-interface VectorFloat {}
+interface VectorFloat {
+  size(): number;
+  get(index: number): number;
+}
 
 declare const EssentiaExtractor: any;
 declare const EssentiaWASM: any;
@@ -24,6 +27,15 @@ declare class Essentia {
     quality?: number
   ): { signal: VectorFloat };
   /**
+   * This algorithm resamples a sequence using FFT / IFFT. The input and output sizes must be an even number.
+   * See https://essentia.upf.edu/reference/std_ResampleFFT.html
+   */
+  ResampleFFT(
+    signal: VectorFloat,
+    inSize?: number,
+    outSize?: number
+  ): { output: VectorFloat };
+  /**
    * This algorithm implements a FIR Moving Average filter.
    * See https://essentia.upf.edu/reference/std_MovingAverage.html
    */
@@ -36,4 +48,28 @@ declare class Essentia {
     array: VectorFloat,
     kernelSize?: number
   ): { filteredArray: VectorFloat };
+  /**
+   * This algorithm downmixes the signal into a single channel given a stereo signal.
+   * See https://essentia.upf.edu/reference/std_MonoMixer.html
+   */
+  MonoMixer(
+    leftSignal: VectorFloat,
+    rightSignal: VectorFloat
+  ): { audio: VectorFloat };
+  /**
+   * This algorithm computes the EBUR128 loudness descriptors of an audio signal.
+   * See https://essentia.upf.edu/reference/std_LoudnessEBUR128.html
+   */
+  LoudnessEBUR128(
+    leftSignal: VectorFloat,
+    rightSignal: VectorFloat,
+    hopSize?: number,
+    sampleRate?: number,
+    startAtZero?: boolean
+  ): {
+    momentaryLoudness: VectorFloat;
+    shortTermLoudness: VectorFloat;
+    integratedLoudness: number;
+    loudnessRange: number;
+  };
 }

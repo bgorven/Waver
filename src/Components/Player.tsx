@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AudioContext,
   IAudioBufferSourceNode,
@@ -11,11 +11,12 @@ const Scale = Slider.createSliderWithTooltip(Slider);
 
 interface IProps {
   data: Float32Array;
+  setTime?: (time: number) => void;
 }
 
 const audioCtx = new AudioContext();
 
-const Player = ({ data }: IProps) => {
+const Player = ({ data, setTime }: IProps) => {
   const [started, start] = useState(false);
   const [source, setSource] = useState(
     null as IAudioBufferSourceNode<IAudioContext> | null
@@ -23,6 +24,7 @@ const Player = ({ data }: IProps) => {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
     const promise = (async () => {
       let resampled;
       if (scale === 1) {
@@ -51,15 +53,30 @@ const Player = ({ data }: IProps) => {
       source.buffer = buf;
       source.loop = true;
       source.connect(audioCtx.destination);
+      const startTime = audioCtx.currentTime;
       if (started) {
-        source.start();
+        source.start(startTime);
       }
+
+      if (started && setTime) {
+        interval = setInterval(
+          () => setTime(audioCtx.currentTime - startTime),
+          1000 / 60
+        );
+      }
+
       return source;
     })();
     return () => {
-      promise.then((source) => source.disconnect());
+      promise.then((source) => {
+        source.disconnect();
+        if (setTime) {
+          clearInterval(interval);
+          setTime(0);
+        }
+      });
     };
-  }, [data, started, scale]);
+  }, [data, started, scale, setTime]);
   return (
     <>
       <button
@@ -69,7 +86,11 @@ const Player = ({ data }: IProps) => {
             source?.stop();
           } else {
             start(true);
-            source?.start();
+            try {
+              source?.start();
+            } catch (e) {
+              console.log(e);
+            }
           }
         }}
       >
