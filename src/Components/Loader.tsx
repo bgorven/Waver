@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Player from "./Player";
 import Wave from "./Waver";
-import essentia from "../essentia";
+import * as ess from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
@@ -14,41 +14,40 @@ const Row = ({ initialData }: IProps) => {
   const [loudness, setLoudness] = useState(initialData);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(1);
+  const [status, setStatus] = useState(false as string | boolean);
 
   const readFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     if (!e?.currentTarget?.files || !e?.currentTarget?.files[0]) {
       return;
     }
     const buf = await e.currentTarget.files[0].arrayBuffer();
+    setStatus("decoding");
     const decoded = await audioCtx.decodeAudioData(buf);
-    const ess = await essentia;
     let data = decoded.getChannelData(0);
-    let vectorData;
     if (decoded.numberOfChannels > 1) {
-      vectorData = ess.MonoMixer(
-        ess.arrayToVector(decoded.getChannelData(0)),
-        ess.arrayToVector(decoded.getChannelData(1))
-      ).audio;
-      data = ess.vectorToArray(vectorData);
-    } else {
-      vectorData = ess.arrayToVector(data);
+      setStatus("mixing");
+      data = await ess.MonoMixer(
+        decoded.getChannelData(0),
+        decoded.getChannelData(1)
+      );
     }
 
     if (decoded.sampleRate !== audioCtx.sampleRate) {
-      vectorData = ess.Resample(
-        vectorData,
+      setStatus("resampling");
+      data = await ess.ResampleFFT(
+        data,
         decoded.sampleRate,
         audioCtx.sampleRate
-      ).signal;
-      data = ess.vectorToArray(vectorData);
+      );
     }
 
     setData(data);
+    setLoudness(initialData);
     setDuration(decoded.length / decoded.sampleRate);
 
-    const loudnessData = ess.vectorToArray(
-      ess.LoudnessEBUR128(vectorData, vectorData).shortTermLoudness
-    );
+    setStatus("calculating loudness");
+    const loudnessData = (await ess.LoudnessEBUR128(data, data))
+      .shortTermLoudness;
     const loudness = new Float32Array(512);
     let min = Number.MAX_VALUE;
     let max = Number.MIN_VALUE;
@@ -62,6 +61,7 @@ const Row = ({ initialData }: IProps) => {
       loudness[Math.floor(i / bucketSize)] = (loudnessData[i] - min) * scale;
     }
     setLoudness(loudness);
+    setStatus(false);
   };
   return (
     (data.length && (
@@ -74,6 +74,7 @@ const Row = ({ initialData }: IProps) => {
           range={[0, 1]}
         />
         <input type="file" onChange={readFile} />
+        {status && <p>{status}</p>}
         <Player data={data} setTime={setTime} />
       </div>
     )) ||

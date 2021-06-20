@@ -1,7 +1,7 @@
 import { useEffect, useState, useReducer } from "react";
 import Player from "./Player";
 import Waver from "./Waver";
-import essentia from "../essentia";
+import * as ess from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
@@ -42,19 +42,14 @@ const Row = ({ initialData }: IProps) => {
   }, [initialData]);
 
   const filter = async () => {
-    const ess = await essentia;
     const size = 4;
     const temp = new Float32Array(data.length + size * 2);
     temp.set(data.slice(data.length - size));
     temp.set(data, size);
     temp.set(data.slice(0, size), size + data.length);
-    const result = ess
-      .vectorToArray(
-        ess.MovingAverage(
-          ess.MovingAverage(ess.arrayToVector(temp), size).signal
-        ).signal
-      )
-      .slice(size * 2);
+    const result = (
+      await ess.MovingAverage(await ess.MovingAverage(temp, size), size)
+    ).slice(size * 2);
     setData(result);
     addHistory(result);
     doRender();

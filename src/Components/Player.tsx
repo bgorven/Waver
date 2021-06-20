@@ -4,10 +4,7 @@ import {
   IAudioBufferSourceNode,
   IAudioContext,
 } from "standardized-audio-context";
-import Slider from "rc-slider";
-import essentia from "../essentia";
-
-const Scale = Slider.createSliderWithTooltip(Slider);
+import * as ess from "../essentia";
 
 interface IProps {
   data: Float32Array;
@@ -30,13 +27,10 @@ const Player = ({ data, setTime }: IProps) => {
       if (scale === 1) {
         resampled = data;
       } else {
-        const ess = await essentia;
-        resampled = ess.vectorToArray(
-          ess.Resample(
-            ess.arrayToVector(data),
-            data.length,
-            data.length * scale
-          ).signal
+        resampled = await ess.ResampleFFT(
+          data,
+          data.length,
+          data.length * scale
         );
       }
       const buf = audioCtx.createBuffer(
@@ -96,7 +90,14 @@ const Player = ({ data, setTime }: IProps) => {
       >
         {started ? "Stop" : "Play"}
       </button>
-      <Scale min={1} max={100} value={scale} onChange={setScale} />
+      <input
+        type="range"
+        min={1}
+        max={100}
+        step={1}
+        value={scale}
+        onChange={(e) => setScale(parseInt(e.currentTarget.value))}
+      />
     </>
   );
 };
