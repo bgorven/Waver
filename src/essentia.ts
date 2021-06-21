@@ -140,3 +140,21 @@ export async function LoudnessEBUR128(
     startAtZero
   );
 }
+export async function RMS(data: Float32Array): Promise<number> {
+  return (await essentia.RMS(data)).rms;
+}
+
+export async function RhythmExtractor2013(
+  signal: Float32Array,
+  maxTempo?: number,
+  method?: string,
+  minTempo?: number
+): Promise<{
+  bpm: number;
+  ticks: Float32Array;
+  confidence: number;
+  estimates: Float32Array;
+  bpmIntervals: Float32Array;
+}> {
+  return await essentia.RhythmExtractor2013(signal, maxTempo, method, minTempo);
+}

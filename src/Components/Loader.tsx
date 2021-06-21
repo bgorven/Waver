@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Player from "./Player";
 import Wave from "./Waver";
-import * as ess from "../essentia";
+import { MonoMixer, ResampleFFT, RhythmExtractor2013, RMS } from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
@@ -11,10 +11,11 @@ const audioCtx = new AudioContext();
 
 const Row = ({ initialData }: IProps) => {
   const [data, setData] = useState(initialData);
-  const [loudness, setLoudness] = useState(initialData);
+  const [wave, setWave] = useState(initialData);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(1);
   const [status, setStatus] = useState(false as string | boolean);
+  const [markers, setMarkers] = useState(new Float32Array());
 
   const readFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     if (!e?.currentTarget?.files || !e?.currentTarget?.files[0]) {
@@ -26,7 +27,7 @@ const Row = ({ initialData }: IProps) => {
     let data = decoded.getChannelData(0);
     if (decoded.numberOfChannels > 1) {
       setStatus("mixing");
-      data = await ess.MonoMixer(
+      data = await MonoMixer(
         decoded.getChannelData(0),
         decoded.getChannelData(1)
       );
@@ -34,33 +35,32 @@ const Row = ({ initialData }: IProps) => {
 
     if (decoded.sampleRate !== audioCtx.sampleRate) {
       setStatus("resampling");
-      data = await ess.ResampleFFT(
-        data,
-        decoded.sampleRate,
-        audioCtx.sampleRate
-      );
+      data = await ResampleFFT(data, decoded.sampleRate, audioCtx.sampleRate);
     }
 
     setData(data);
-    setLoudness(initialData);
+    setWave(initialData);
+    setMarkers(new Float32Array());
     setDuration(decoded.length / decoded.sampleRate);
 
-    setStatus("calculating loudness");
-    const loudnessData = (await ess.LoudnessEBUR128(data, data))
-      .shortTermLoudness;
-    const loudness = new Float32Array(512);
-    let min = Number.MAX_VALUE;
-    let max = Number.MIN_VALUE;
-    for (const value of loudnessData) {
-      min = Math.min(min, value);
-      max = Math.max(max, value);
+    setStatus("calculating rms");
+    const bucketSize = data.length / initialData.length;
+    const rms = new Float32Array(initialData.length);
+    for (let i = 0; i < initialData.length; i++) {
+      rms[i] = await RMS(data.slice(bucketSize * i, bucketSize * (i + 1)));
     }
-    const bucketSize = loudnessData.length / 512;
-    const scale = 1 / (Math.abs(max - min) * bucketSize);
-    for (let i = 0; i < loudnessData.length; i++) {
-      loudness[Math.floor(i / bucketSize)] = (loudnessData[i] - min) * scale;
-    }
-    setLoudness(loudness);
+    setWave(rms);
+    setStatus("Finding beats");
+
+    const ticks = (await RhythmExtractor2013(data)).ticks;
+
+    setMarkers(
+      ticks.map(
+        (second) =>
+          (second * audioCtx.sampleRate * initialData.length) / data.length
+      )
+    );
+
     setStatus(false);
   };
   return (
@@ -69,9 +69,13 @@ const Row = ({ initialData }: IProps) => {
         <Wave
           mode="display"
           height={100}
-          data={loudness}
-          currentTime={((time % duration) / duration) * 512}
-          range={[0, 1]}
+          data={wave}
+          currentTime={((time % duration) / duration) * initialData.length}
+          markers={markers}
+          range={[
+            wave.reduce((l, r) => Math.min(l, r), Number.MAX_VALUE),
+            wave.reduce((l, r) => Math.max(l, r), Number.MIN_VALUE),
+          ]}
         />
         <input type="file" onChange={readFile} />
         {status && <p>{status}</p>}

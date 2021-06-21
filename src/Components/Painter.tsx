@@ -1,7 +1,7 @@
 import { useEffect, useState, useReducer } from "react";
+import { MovingAverage } from "../essentia";
 import Player from "./Player";
 import Waver from "./Waver";
-import * as ess from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
@@ -48,7 +48,7 @@ const Row = ({ initialData }: IProps) => {
     temp.set(data, size);
     temp.set(data.slice(0, size), size + data.length);
     const result = (
-      await ess.MovingAverage(await ess.MovingAverage(temp, size), size)
+      await MovingAverage(await MovingAverage(temp, size), size)
     ).slice(size * 2);
     setData(result);
     addHistory(result);

@@ -58,6 +58,10 @@ interface DisplayProps extends BaseProps {
    * Render a time marker at this horizontal pixel.
    */
   currentTime?: number;
+  /**
+   * Render a markers at these horizontal pixels.
+   */
+  markers?: number[] | Float32Array;
 }
 
 interface IState {
@@ -68,7 +72,7 @@ interface IState {
 
 function render(
   canvas: HTMLCanvasElement | null,
-  { data, height, range, currentTime }: DisplayProps
+  { data, height, range, currentTime, markers }: DisplayProps
 ) {
   const ctx = canvas?.getContext("2d");
   if (canvas && ctx && data) {
@@ -83,6 +87,16 @@ function render(
       ctx.lineTo(i, (range[1] - data[i]) * scale);
     }
     ctx.stroke();
+    if (markers) {
+      for (let marker of markers) {
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "blue";
+        ctx.moveTo(marker, 0);
+        ctx.lineTo(marker, height);
+        ctx.stroke();
+      }
+    }
     if (currentTime) {
       ctx.beginPath();
       ctx.lineWidth = 1;

@@ -4,7 +4,7 @@ import {
   IAudioBufferSourceNode,
   IAudioContext,
 } from "standardized-audio-context";
-import * as ess from "../essentia";
+import { ResampleFFT } from "../essentia";
 
 interface IProps {
   data: Float32Array;
@@ -27,11 +27,7 @@ const Player = ({ data, setTime }: IProps) => {
       if (scale === 1) {
         resampled = data;
       } else {
-        resampled = await ess.ResampleFFT(
-          data,
-          data.length,
-          data.length * scale
-        );
+        resampled = await ResampleFFT(data, data.length, data.length * scale);
       }
       const buf = audioCtx.createBuffer(
         1,
