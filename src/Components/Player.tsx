@@ -9,16 +9,16 @@ import { ResampleFFT } from "../essentia";
 interface IProps {
   data: Float32Array;
   setTime?: (time: number) => void;
+  scale?: number;
 }
 
-const audioCtx = new AudioContext();
+const audioCtx = new AudioContext({ sampleRate: 44100 });
 
-const Player = ({ data, setTime }: IProps) => {
+const Player = ({ data, scale, setTime }: IProps) => {
   const [started, start] = useState(false);
   const [source, setSource] = useState(
     null as IAudioBufferSourceNode<IAudioContext> | null
   );
-  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -27,7 +27,11 @@ const Player = ({ data, setTime }: IProps) => {
       if (scale === 1) {
         resampled = data;
       } else {
-        resampled = await ResampleFFT(data, data.length, data.length * scale);
+        resampled = await ResampleFFT(
+          data,
+          data.length,
+          Math.floor((data.length * (scale || 1)) / 2) * 2
+        );
       }
       const buf = audioCtx.createBuffer(
         1,
@@ -68,33 +72,23 @@ const Player = ({ data, setTime }: IProps) => {
     };
   }, [data, started, scale, setTime]);
   return (
-    <>
-      <button
-        onClick={() => {
-          if (started) {
-            start(false);
-            source?.stop();
-          } else {
+    <button
+      onClick={() => {
+        if (started) {
+          source?.stop();
+          start(false);
+        } else {
+          try {
+            source?.start();
             start(true);
-            try {
-              source?.start();
-            } catch (e) {
-              console.log(e);
-            }
+          } catch (e) {
+            console.log(e);
           }
-        }}
-      >
-        {started ? "Stop" : "Play"}
-      </button>
-      <input
-        type="range"
-        min={1}
-        max={100}
-        step={1}
-        value={scale}
-        onChange={(e) => setScale(parseInt(e.currentTarget.value))}
-      />
-    </>
+        }
+      }}
+    >
+      {started ? "Stop" : "Play"}
+    </button>
   );
 };
 

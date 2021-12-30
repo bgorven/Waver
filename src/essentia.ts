@@ -1,7 +1,7 @@
 const handler = URL.createObjectURL(
   new Blob([
     `
-var baseUrl = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.0/dist/";
+var baseUrl = "https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/";
 importScripts(
   baseUrl + "essentia-wasm.web.js",
   baseUrl + "essentia.js-core.js"
@@ -142,6 +142,36 @@ export async function LoudnessEBUR128(
 }
 export async function RMS(data: Float32Array): Promise<number> {
   return (await essentia.RMS(data)).rms;
+}
+
+export async function BeatTrackerDegara(
+  signal: Float32Array,
+  maxTempo?: number,
+  minTempo?: number
+): Promise<{
+  ticks: Float32Array;
+}> {
+  return await essentia.BeatTrackerDegara(signal, maxTempo, minTempo);
+}
+
+export async function BeatTrackerMultiFeature(
+  signal: Float32Array,
+  maxTempo?: number,
+  minTempo?: number
+): Promise<{
+  ticks: Float32Array;
+  confidence: number;
+}> {
+  return await essentia.BeatTrackerMultiFeature(signal, maxTempo, minTempo);
+}
+
+export async function RhythmExtractor(signal: Float32Array): Promise<{
+  bpm: number;
+  ticks: Float32Array;
+  estimates: Float32Array;
+  bpmIntervals: Float32Array;
+}> {
+  return await essentia.RhythmExtractor(signal);
 }
 
 export async function RhythmExtractor2013(
