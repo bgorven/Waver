@@ -1,5 +1,5 @@
 import { useEffect, useState, useReducer } from "react";
-import { MovingAverage } from "../essentia";
+import { MovingAverage, ResampleFFT } from "../essentia";
 import Player from "./Player";
 import Waver from "./Waver";
 
@@ -12,8 +12,8 @@ const Row = ({ initialData }: IProps) => {
   const [history, setHistory] = useState([] as Float32Array[]);
   const [histIndex, setHistoryIndex] = useState(0);
   const [render, doRender] = useReducer((r: number) => r + 1, 0);
-  const [scale, setScale] = useState(1);
-  const hz = 44100 / data.length;
+  const [scale, doSetScale] = useState(1);
+  const hz = 44100 / initialData.length;
 
   const addHistory = (data: Float32Array) => {
     if (data !== history[histIndex]) {
@@ -25,6 +25,9 @@ const Row = ({ initialData }: IProps) => {
   const back = () => {
     setHistoryIndex(histIndex - 1);
     const histData = history[histIndex - 1];
+    if (histData.length != data.length) {
+      setScale(histData.length / initialData.length);
+    }
     setData(histData);
     doRender();
   };
@@ -32,8 +35,29 @@ const Row = ({ initialData }: IProps) => {
   const forward = () => {
     setHistoryIndex(histIndex + 1);
     const histData = history[histIndex + 1];
+    if (histData.length != data.length) {
+      setScale(histData.length / initialData.length);
+    }
     setData(histData);
     doRender();
+  };
+
+  const setScale = async (scale: number) => {
+    if (!isFinite(scale)) {
+      return;
+    }
+    doSetScale(scale);
+    if (scale < 1) {
+      setData(
+        await ResampleFFT(
+          data,
+          data.length,
+          Math.floor((initialData.length * (scale || 1)) / 2) * 2
+        )
+      );
+    } else if (data.length < initialData.length) {
+      setData(await ResampleFFT(data, data.length, initialData.length));
+    }
   };
 
   useEffect(() => {
@@ -72,7 +96,7 @@ const Row = ({ initialData }: IProps) => {
           />
         </div>
         <div>
-          <Player data={data} scale={scale} />
+          <Player data={data} scale={scale < 1 ? 1 : scale} />
           <button onClick={back} disabled={histIndex <= 0}>
             Undo ({histIndex})
           </button>
@@ -82,17 +106,21 @@ const Row = ({ initialData }: IProps) => {
           <button onClick={filter}>Filter</button>
           <input
             type="range"
-            min={1}
-            max={100}
-            value={scale}
-            onChange={(e) => setScale(parseFloat(e.currentTarget.value))}
+            min={-4}
+            max={4}
+            step="any"
+            value={-Math.log2(scale)}
+            onChange={(e) => setScale(2 ** -parseFloat(e.currentTarget.value))}
+            onMouseUp={() => addHistory(data)}
           />
           <input
             type="number"
-            min={hz}
-            max={100 * hz}
-            value={scale * hz}
-            onChange={(e) => setScale(parseFloat(e.currentTarget.value) / hz)}
+            min={0}
+            max={44100}
+            step="any"
+            value={Math.round((10000 * hz) / scale) / 10000}
+            onChange={(e) => setScale(hz / parseFloat(e.currentTarget.value))}
+            onBlur={() => addHistory(data)}
           />
           Hz
         </div>

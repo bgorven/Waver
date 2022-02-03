@@ -27,11 +27,8 @@ const Player = ({ data, scale, setTime }: IProps) => {
       if (scale === 1) {
         resampled = data;
       } else {
-        resampled = await ResampleFFT(
-          data,
-          data.length,
-          Math.floor((data.length * (scale || 1)) / 2) * 2
-        );
+        const size = (data.length * (scale || 1)) / 2;
+        resampled = await ResampleFFT(data, data.length, Math.floor(size) * 2);
       }
       const buf = audioCtx.createBuffer(
         1,
@@ -62,13 +59,15 @@ const Player = ({ data, scale, setTime }: IProps) => {
       return source;
     })();
     return () => {
-      promise.then((source) => {
-        source.disconnect();
-        if (setTime) {
-          clearInterval(interval);
-          setTime(0);
-        }
-      });
+      promise
+        .then((source) => {
+          source.disconnect();
+          if (setTime) {
+            clearInterval(interval);
+            setTime(0);
+          }
+        })
+        .catch(console.log);
     };
   }, [data, started, scale, setTime]);
   return (

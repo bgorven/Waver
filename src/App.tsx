@@ -1,6 +1,6 @@
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
-import { Tab, Tabs, Typography } from "@mui/material";
+import { Tab, Tabs } from "@mui/material";
 import { Box } from "@mui/system";
 import { useState } from "react";
 import "./App.css";
