@@ -5,9 +5,10 @@ import Waver from "./Waver";
 
 interface IProps {
   initialData: Float32Array;
+  gain: number;
 }
 
-const Row = ({ initialData }: IProps) => {
+const Row = ({ initialData, gain }: IProps) => {
   const [data, setData] = useState(new Float32Array());
   const [history, setHistory] = useState([] as Float32Array[]);
   const [histIndex, setHistoryIndex] = useState(0);
@@ -25,7 +26,7 @@ const Row = ({ initialData }: IProps) => {
   const back = () => {
     setHistoryIndex(histIndex - 1);
     const histData = history[histIndex - 1];
-    if (histData.length != data.length) {
+    if (histData.length !== data.length) {
       setScale(histData.length / initialData.length);
     }
     setData(histData);
@@ -35,7 +36,7 @@ const Row = ({ initialData }: IProps) => {
   const forward = () => {
     setHistoryIndex(histIndex + 1);
     const histData = history[histIndex + 1];
-    if (histData.length != data.length) {
+    if (histData.length !== data.length) {
       setScale(histData.length / initialData.length);
     }
     setData(histData);
@@ -88,7 +89,7 @@ const Row = ({ initialData }: IProps) => {
           <Waver
             mode="draw"
             height={100}
-            data={data}
+            data={{ wave: data }}
             range={[-1, 1]}
             setData={setData}
             addHistory={addHistory}
@@ -96,7 +97,7 @@ const Row = ({ initialData }: IProps) => {
           />
         </div>
         <div>
-          <Player data={data} scale={scale < 1 ? 1 : scale} />
+          <Player data={data} scale={scale < 1 ? 1 : scale} gain={gain} />
           <button onClick={back} disabled={histIndex <= 0}>
             Undo ({histIndex})
           </button>
