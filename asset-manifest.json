@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/Waver/static/css/main.936c8b5d.css",
-    "main.js": "/Waver/static/js/main.3f1ad0d1.js",
-    "static/js/787.2218e239.chunk.js": "/Waver/static/js/787.2218e239.chunk.js",
+    "main.js": "/Waver/static/js/main.a0e57eb9.js",
+    "static/js/787.0cf1fa4c.chunk.js": "/Waver/static/js/787.0cf1fa4c.chunk.js",
     "index.html": "/Waver/index.html",
     "main.936c8b5d.css.map": "/Waver/static/css/main.936c8b5d.css.map",
-    "main.3f1ad0d1.js.map": "/Waver/static/js/main.3f1ad0d1.js.map",
-    "787.2218e239.chunk.js.map": "/Waver/static/js/787.2218e239.chunk.js.map"
+    "main.a0e57eb9.js.map": "/Waver/static/js/main.a0e57eb9.js.map",
+    "787.0cf1fa4c.chunk.js.map": "/Waver/static/js/787.0cf1fa4c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.936c8b5d.css",
-    "static/js/main.3f1ad0d1.js"
+    "static/js/main.a0e57eb9.js"
   ]
 }
