@@ -14,20 +14,32 @@ fetch = fetchFn;
 var document = {};
 var essentia = EssentiaWASM().then(wasm => new Essentia(wasm));
 onmessage = async function(e) {
-  const ess = await essentia;
-  const args = e.data[1].map((value) => {
-    if (value instanceof Float32Array) {
-      return ess.arrayToVector(value);
+  try {
+    const ess = await essentia;
+    const args = e.data[1].map((value) => {
+      if (value instanceof Float32Array) {
+        return ess.arrayToVector(value);
+      }
+      return value;
+    });
+    const result = ess[e.data[0]].apply(ess, args);
+    for (let key of Object.keys(result)) {
+      if (result[key].constructor.name === 'VectorFloat') {
+        try {
+          result[key] = ess.vectorToArray(result[key]);
+        } catch (e) {
+          if (e !== "Empty vector input") {
+            console.log(e);
+            throw e;
+          }
+          result[key] = new Float32Array();
+        }
+      }
     }
-    return value;
-  });
-  const result = ess[e.data[0]].apply(ess, args);
-  for (let key of Object.keys(result)) {
-    if (result[key].constructor.name === 'VectorFloat') {
-      result[key] = ess.vectorToArray(result[key]);
-    }
+    postMessage({result});
+  } catch (error) {
+    postMessage({error});
   }
-  postMessage(result);
 }`,
   ])
 );
@@ -50,7 +62,12 @@ for (let i = 0; i < 8; i++) {
   const index = i;
   const worker = new Worker(handler);
   worker.onmessage = (value) => {
-    (handlers[index].shift() || err)[0](value);
+    const handler = handlers[index].shift() || err;
+    if (value.data.result) {
+      handler[0](value.data.result);
+    } else {
+      handler[1](value.data.error);
+    }
     const queueItem = queue.shift();
     if (queueItem) {
       workers[index].postMessage(
@@ -90,7 +107,7 @@ const essentia: { [id: string]: (...args: any[]) => Promise<any> } = new Proxy(
           return new Promise((resolve, reject) =>
             handlers[index].push([resolve, reject])
           ).then((value: any) => {
-            return value.data || {};
+            return value || {};
           });
         } else {
           const queueItem: typeof queue[number] = {
@@ -100,7 +117,7 @@ const essentia: { [id: string]: (...args: any[]) => Promise<any> } = new Proxy(
           return new Promise(
             (resolve, reject) => (queueItem["handler"] = [resolve, reject])
           ).then((value: any) => {
-            return value.data || {};
+            return value || {};
           });
         }
       };
@@ -192,18 +209,6 @@ export async function LoudnessEBUR128(
     sampleRate,
     startAtZero
   );
-}
-
-/**
- * This algorithm computes the root mean square (quadratic mean) of an array. RMS is not defined for empty arrays. In such case, an exception will be thrown.
- * See https://essentia.upf.edu/reference/std_RMS.html
- */
-export async function RMS(data: Float32Array): Promise<number> {
-  if (data.length === 0) {
-    console.error("RMS called with empty array");
-    return 0;
-  }
-  return (await essentia.RMS(data)).rms;
 }
 
 /**
@@ -320,4 +325,27 @@ export async function WarpedAutoCorrelation(
 ): Promise<Float32Array> {
   return (await essentia.AutoCorrelation(array, maxLag, sampleRate))
     .warpedAutoCorrelation;
+}
+
+/**
+ * This algorithm computes the cross-correlation vector of two signals.
+ * It accepts 2 parameters, minLag and maxLag which define the range of the computation of the innerproduct.
+ * See https://essentia.upf.edu/reference/std_CrossCorrelation.html
+ *
+ * An exception is thrown if “minLag” is larger than “maxLag”. An exception is also thrown if the input vectors are empty.
+ */
+export async function CrossCorrelation(
+  arrayX: Float32Array,
+  arrayY: Float32Array,
+  maxLag?: number,
+  minLag?: number
+): Promise<Float32Array> {
+  if (arrayX.length === 0 || arrayY.length === 0) {
+    console.error("CrossCorrelation called with empty array");
+  }
+  if ((minLag || 0) > (maxLag || 1)) {
+    console.error("CrossCorrelation called with invalid lag");
+  }
+  return (await essentia.CrossCorrelation(arrayX, arrayY, maxLag, minLag))
+    .crossCorrelation;
 }

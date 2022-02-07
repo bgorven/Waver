@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Player from "./Player";
 import Waver from "./Waver";
-import { MonoMixer, ResampleFFT, RhythmExtractor2013, RMS } from "../essentia";
+import {
+  CrossCorrelation,
+  MonoMixer,
+  MovingAverage,
+  ResampleFFT,
+  RhythmExtractor2013,
+} from "../essentia";
 
 interface IProps {
   initialData: Float32Array;
+  setWaves: (
+    waves: {
+      data: Float32Array;
+      scale: number;
+    }[]
+  ) => void;
 }
 
 const audioCtx = new AudioContext({ sampleRate: 44100 });
@@ -16,34 +28,32 @@ const concat = (left: Float32Array, right: Float32Array) => {
   return result;
 };
 
-const zoomLevel = [...Array(3).keys()].map((v) => 2 ** (v * 6)).reverse();
+const RMS = (data: Float32Array) =>
+  Math.sqrt(data.map((v) => v * v).reduce((l, r) => l + r) / data.length);
+
+const zoomLevel = [...Array(4).keys()].map((v) => 2 ** (v * 4)).reverse();
 
 const iter = [...Array(512).keys()];
 
-const toRms = async (
-  data: Float32Array,
-  bucketSize: number,
-  resultSize: number
-) => {
+const toRms = (data: Float32Array, bucketSize: number, resultSize: number) => {
   const result = new Float32Array(resultSize);
   for (let i = 0; i < resultSize; i = i + iter.length) {
     result.set(
-      await Promise.all(
-        iter
-          .filter((j) => i + j < resultSize)
-          .map((j) =>
-            RMS(data.slice(bucketSize * (i + j), bucketSize * (i + j + 1)))
-          )
-      ),
+      iter
+        .filter((j) => i + j < resultSize)
+        .map((j) =>
+          RMS(data.slice(bucketSize * (i + j), bucketSize * (i + j + 1)))
+        ),
       i
     );
   }
   return result;
 };
 
-const Loader = ({ initialData }: IProps) => {
+const Loader = ({ initialData, setWaves }: IProps) => {
   const [data, setData] = useState(new Float32Array());
   const [wave, setWave] = useState(new Float32Array());
+  const [waveList, setWaveList] = useState([] as Float32Array[]);
   const [duration, setDuration] = useState(1);
   const [time, setTime] = useReducer(
     (_: number, t: number) => ((t % duration) / duration) * wave.length,
@@ -112,7 +122,7 @@ const Loader = ({ initialData }: IProps) => {
     const rhythm2013 = RhythmExtractor2013(data);
     const bucketSize = data.length / initialData.length;
     setStatus("calculating rms");
-    const rms = await toRms(data, bucketSize, initialData.length);
+    const rms = toRms(data, bucketSize, initialData.length);
     setWave(rms);
     setStatus("calculating range");
     setRange([
@@ -122,7 +132,7 @@ const Loader = ({ initialData }: IProps) => {
     setStatus("finding beats");
 
     let ticks = (await rhythm2013).ticks;
-    setBpm((await rhythm2013).bpm);
+    setBpm(Math.round((await rhythm2013).bpm));
 
     setTicks(ticks);
     setMarkers(
@@ -152,11 +162,11 @@ const Loader = ({ initialData }: IProps) => {
       setZoomData([]);
       return;
     }
-    Promise.all(
+    setZoomData(
       zoomLevel.map((z) =>
         z === 1 ? data : toRms(data, z, Math.floor(data.length / z))
       )
-    ).then(setZoomData);
+    );
   }, [data]);
 
   const zoomedWaves = useMemo(
@@ -167,23 +177,24 @@ const Loader = ({ initialData }: IProps) => {
           offset: initialData.length / 2,
           wave: data.slice(
             fineX[1] / zoomLevel[i],
-            fineX[1] / zoomLevel[i] +
-              Math.min(
-                initialData.length / 2,
-                (fineX[1] - fineX[0]) / zoomLevel[i]
-              )
+            fineX[1] / zoomLevel[i] + initialData.length / 2
           ),
         },
         {
           color: "blue",
-          wave: data.slice(
-            fineX[0] / zoomLevel[i] -
-              Math.min(
-                initialData.length / 2,
-                (fineX[1] - fineX[0]) / zoomLevel[i]
-              ),
-            fineX[0] / zoomLevel[i]
-          ),
+          wave:
+            fineX[0] / zoomLevel[i] >= initialData.length / 2
+              ? data.slice(
+                  fineX[0] / zoomLevel[i] - initialData.length / 2,
+                  fineX[0] / zoomLevel[i]
+                )
+              : concat(
+                  initialData.slice(
+                    0,
+                    initialData.length / 2 - fineX[0] / zoomLevel[i]
+                  ),
+                  data.slice(0, fineX[0] / zoomLevel[i])
+                ),
         },
         {
           wave: concat(
@@ -206,7 +217,7 @@ const Loader = ({ initialData }: IProps) => {
           ),
         },
       ]),
-    [zoomData, fineX, initialData.length]
+    [zoomData, fineX, initialData]
   );
 
   const crop = useCallback(() => {
@@ -246,13 +257,16 @@ const Loader = ({ initialData }: IProps) => {
     {} as { started: boolean; left: boolean; x: number }
   );
   const setFine = useCallback(
-    ({ x, start, end }: { x: number; start: boolean; end: boolean }) => {
+    (
+      { x, start, end }: { x: number; start: boolean; end: boolean },
+      scale: number
+    ) => {
       if (start) {
         setFineDrag({ started: true, left: x < initialData.length / 2, x });
       } else if (fineDrag.started) {
         let newX = fineDrag.left
-          ? [fineX[0], fineX[1] - (fineDrag.x - x)]
-          : [fineX[0] - (fineDrag.x - x), fineX[1]];
+          ? [fineX[0], fineX[1] + (fineDrag.x - x) * scale]
+          : [fineX[0] + (fineDrag.x - x) * scale, fineX[1]];
         if (newX[0] > newX[1]) {
           newX = [newX[1], newX[0]];
         }
@@ -263,10 +277,96 @@ const Loader = ({ initialData }: IProps) => {
           newX[1] = data.length - 1;
         }
         setFineX(newX);
+        setFineDrag({ started: !end, left: fineDrag.left, x });
       }
     },
     [fineX, fineDrag, setFineDrag, data.length, initialData.length]
   );
+
+  const getWaves = async () => {
+    const waves = [];
+    const waveList = [];
+    const pad = 4;
+    const d = new Float32Array(data);
+
+    for (let w = 0; w < 8; ) {
+      let size = d.length / 2 ** w++;
+      size = size - (size % 2);
+      const avg = new Float32Array(size);
+
+      setStatus("averaging wave " + w);
+      const count = Math.floor(d.length / size);
+      const mod = d.length % size;
+      for (let i = 0; i < mod; i++) {
+        let sum = 0;
+        for (let j = 0; j <= count; j++) {
+          const val = d[j * size + i];
+          if (!isFinite(val)) {
+            console.log(j * size + i);
+          }
+          sum += val;
+        }
+        avg[i] = sum / (count + 1);
+      }
+      for (let i = mod; i < size; i++) {
+        let sum = 0;
+        for (let j = 0; j < count; j++) {
+          const val = d[j * size + i];
+          if (!isFinite(val)) {
+            console.log(j * size + i);
+          }
+          sum += val;
+        }
+        avg[i] = sum / count;
+      }
+
+      setStatus("filtering wave " + w);
+      const temp = new Float32Array(size + pad * 2);
+      temp.set(avg.slice(size - pad));
+      temp.set(avg, pad);
+      temp.set(avg.slice(0, pad), pad + size);
+      const filtered = (
+        await MovingAverage(await MovingAverage(temp, pad), pad)
+      ).slice(pad * 2, size + pad * 2);
+
+      setStatus("filling wave " + w);
+      const full = new Float32Array(d.length);
+      for (let i = 0; i < d.length; i++) {
+        full[i] = filtered[i % filtered.length];
+      }
+
+      setStatus("shifting wave " + w);
+      const lag = (
+        await CrossCorrelation(d, full, Math.min(size, initialData.length))
+      ).reduce(
+        (max, v, i) => (max[0] > v || !isFinite(v) ? max : [v, i]),
+        [-Infinity, 0]
+      );
+      const shifted = concat(
+        full.slice(full.length - lag[1]),
+        full.slice(0, full.length - lag[1])
+      );
+
+      for (let i = 0; i < d.length; i++) {
+        d[i] = d[i] - shifted[i];
+      }
+
+      waveList.push(
+        toRms(d, d.length / initialData.length, initialData.length)
+      );
+
+      setStatus("resizing wave " + w);
+      const resized =
+        size <= initialData.length
+          ? shifted.slice(0, size)
+          : await ResampleFFT(shifted.slice(0, size), size, initialData.length);
+
+      waves.push({ data: resized, scale: size / resized.length });
+    }
+    setStatus(false);
+    setWaves(waves);
+    setWaveList(waveList);
+  };
 
   return (
     <>
@@ -296,6 +396,18 @@ const Loader = ({ initialData }: IProps) => {
                   />
                 )}
               </div>
+              {waveList.map((wave, i) => (
+                <div key={i}>
+                  {!!wave.length && (
+                    <Waver
+                      mode="display"
+                      height={100}
+                      setX={setX}
+                      data={[{ wave }]}
+                    />
+                  )}
+                </div>
+              ))}
               {x.length === 2 && (
                 <>
                   {zoomedWaves.map((data, i) => (
@@ -305,7 +417,10 @@ const Loader = ({ initialData }: IProps) => {
                         height={100}
                         data={data}
                         range={zoomLevel[i] === 1 ? [-1, 1] : undefined}
-                        setX={zoomLevel[i] === 1 ? setFine : undefined}
+                        setX={(x) =>
+                          data[2].wave.length === initialData.length &&
+                          setFine(x, zoomLevel[i])
+                        }
                       />
                     </div>
                   ))}
@@ -332,7 +447,8 @@ const Loader = ({ initialData }: IProps) => {
       )}
       <div>
         {status && <p>{status}</p>}
-        {bpm || undefined} {(bpm && "bpm") || undefined}
+        {!!bpm && <p>{bpm} bpm</p>}
+        {false && <button onClick={getWaves}>↓</button>}
       </div>
     </>
   );

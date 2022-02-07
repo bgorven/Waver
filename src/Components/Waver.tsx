@@ -227,6 +227,7 @@ const Waver = (props: IProps) => {
   const [state, setState] = useState({ x: 0, y: 0, draw: false });
   const ref = useRef<HTMLCanvasElement>(null);
   let deps;
+  let renderProps: DisplayProps;
   if (props.mode === "draw") {
     // ignore changes to contents of data array; parent signals change by updating 'render' prop
     deps = [
@@ -235,10 +236,12 @@ const Waver = (props: IProps) => {
       props.render,
       window.devicePixelRatio,
     ];
+    renderProps = { ...props, mode: "display", data: [props.data] };
   } else {
+    renderProps = props;
     deps = [props, window.devicePixelRatio];
   }
-  useEffect(() => render(ref.current, props as any), deps);
+  useEffect(() => render(ref.current, renderProps), deps);
 
   let callback;
   if (props.mode === "draw") {

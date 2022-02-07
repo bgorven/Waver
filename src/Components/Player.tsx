@@ -6,6 +6,8 @@ import {
   IGainNode,
 } from "standardized-audio-context";
 import { ResampleFFT } from "../essentia";
+import audioEncoder from "audio-encoder";
+import { saveAs } from "file-saver";
 
 interface IProps {
   data: Float32Array;
@@ -94,24 +96,34 @@ const Player = ({ data, scale, gain, setTime }: IProps) => {
   }, [data, started, scale, gainNode, setTime]);
 
   return (
-    <button
-      disabled={!source}
-      onClick={() => {
-        if (started) {
-          source?.stop();
-          start(false);
-        } else {
-          try {
-            source?.start();
-            start(true);
-          } catch (e) {
-            console.log(e);
+    <>
+      <button
+        disabled={!source}
+        onClick={() => {
+          if (started) {
+            source?.stop();
+            start(false);
+          } else {
+            try {
+              source?.start();
+              start(true);
+            } catch (e) {
+              console.log(e);
+            }
           }
-        }
-      }}
-    >
-      {started ? "stop" : "play"}
-    </button>
+        }}
+      >
+        {started ? "pause" : "play"}
+      </button>
+      <button
+        disabled={!source}
+        onClick={() => {
+          source && audioEncoder(source.buffer, null, null, saveAs);
+        }}
+      >
+        save
+      </button>
+    </>
   );
 };
 

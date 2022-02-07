@@ -5,15 +5,16 @@ import Waver from "./Waver";
 
 interface IProps {
   initialData: Float32Array;
+  initialScale: number;
   gain: number;
 }
 
-const Row = ({ initialData, gain }: IProps) => {
+const Painter = ({ initialData, initialScale, gain }: IProps) => {
   const [data, setData] = useState(new Float32Array());
   const [history, setHistory] = useState([] as Float32Array[]);
   const [histIndex, setHistoryIndex] = useState(0);
   const [render, doRender] = useReducer((r: number) => r + 1, 0);
-  const [scale, doSetScale] = useState(1);
+  const [scale, doSetScale] = useState(initialScale);
   const hz = 44100 / initialData.length;
 
   const addHistory = (data: Float32Array) => {
@@ -63,20 +64,21 @@ const Row = ({ initialData, gain }: IProps) => {
 
   useEffect(() => {
     setData(initialData);
+    doSetScale(initialScale);
     setHistory([initialData]);
     setHistoryIndex(0);
     doRender();
-  }, [initialData]);
+  }, [initialData, initialScale]);
 
   const filter = async () => {
-    const size = 4;
-    const temp = new Float32Array(data.length + size * 2);
-    temp.set(data.slice(data.length - size));
-    temp.set(data, size);
-    temp.set(data.slice(0, size), size + data.length);
+    const pad = 4;
+    const temp = new Float32Array(data.length + pad * 2);
+    temp.set(data.slice(data.length - pad));
+    temp.set(data, pad);
+    temp.set(data.slice(0, pad), pad + data.length);
     const result = (
-      await MovingAverage(await MovingAverage(temp, size), size)
-    ).slice(size * 2);
+      await MovingAverage(await MovingAverage(temp, pad), pad)
+    ).slice(pad * 2);
     setData(result);
     addHistory(result);
     doRender();
@@ -131,4 +133,4 @@ const Row = ({ initialData, gain }: IProps) => {
   );
 };
 
-export default Row;
+export default Painter;
